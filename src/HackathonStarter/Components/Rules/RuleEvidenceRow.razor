@@ -1,0 +1,122 @@
+@using HackathonStarter.Features.Rules
+@* One rule of RuleEvidencePanel: the summary line first, the legal and technical details behind a disclosure. *@
+<article class="re-item re-@State" aria-label="@($"{Item.Hit.RuleId}: {Item.Title}")">
+    <span class="re-icon" aria-hidden="true"><MudIcon Icon="@StateIcon" /></span>
+    <div class="re-body">
+        <div class="re-head">
+            <span class="re-name">@Item.Title</span>
+            <span class="re-tags">
+                @if (Item.Hit.Jurisdiction.Length > 0)
+                {
+                    <Pill Icon="@Icons.Material.Rounded.Place" Title="@Jurisdictions.Display(Item.Hit.Jurisdiction, IsEn)">@Item.Hit.Jurisdiction</Pill>
+                }
+                <Pill Tone="@StateTone" Icon="@StateIcon">@StateLabel</Pill>
+            </span>
+        </div>
+        <p class="re-text">@Item.Explanation</p>
+        <div class="re-meta">
+            <span class="mono re-id">@Item.Hit.RuleId</span>
+            <span>@RegimeText(Item.Hit.Regime)</span>
+            @if (Item.PageVerified)
+            {
+                <span class="re-page" title="@T("ANAF guide of 29.12.2025")"><MudIcon Icon="@Icons.Material.Rounded.MenuBook" />@T("Guide p. {0}", Item.Hit.GuidePage)</span>
+            }
+            else
+            {
+                <Pill Tone="warning" Icon="@Icons.Material.Rounded.HelpOutline">@T("Guide page not verified")</Pill>
+            }
+            <Pill Tone="@BasisTone" Icon="@BasisIcon" Title="@BasisMeaning">@BasisLabel</Pill>
+        </div>
+        <details class="re-details">
+            <summary><MudIcon Icon="@Icons.Material.Rounded.ChevronRight" Class="re-chevron" />@T("Rule details")</summary>
+            <dl>
+                @if (Item.Description.Length > 0)
+                {
+                    <dt>@T("What the rule says")</dt>
+                    <dd>@Item.Description</dd>
+                }
+                @if (Item.Rule.LegalBasis.Length > 0)
+                {
+                    <dt>@T("Legal basis")</dt>
+                    <dd>@Item.Rule.LegalBasis</dd>
+                }
+                <dt>@T("ANAF guide page")</dt>
+                <dd>@(Item.PageVerified ? Item.Hit.GuidePage : T("Not verified"))</dd>
+                <dt>@T("Legal certainty")</dt>
+                <dd>@BasisLabel: @BasisMeaning</dd>
+                @if (Item.Hit.SourceField.Length > 0)
+                {
+                    <dt>@T("Data field")</dt>
+                    <dd class="mono">@Item.Hit.SourceField</dd>
+                }
+                <dt>@T("Rule ID")</dt>
+                <dd class="mono">@Item.Hit.RuleId v@(Item.Rule.Version)</dd>
+            </dl>
+        </details>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public RuleEvidenceItem Item { get; set; } = default!;
+    /// <summary>A rule checked without a case (RuleOutcome.Cleared), not an indicium.</summary>
+    [Parameter] public bool Cleared { get; set; }
+
+    public static string RegimeText(Regime regime) => regime switch
+    {
+        Regime.Crs => "CRS",
+        Regime.Fatca => "FATCA",
+        _ => "CRS + FATCA",
+    };
+
+    private string State => Cleared ? "cleared" : Item.IsCovered ? "covered" : Item.Hit.Regime == Regime.Fatca ? "fatca" : "open";
+
+    private string? StateTone => State switch
+    {
+        "covered" => "success",
+        "fatca" => "danger",
+        "open" => "warning",
+        _ => null,
+    };
+
+    private string StateIcon => State switch
+    {
+        "cleared" => Icons.Material.Rounded.TaskAlt,
+        "covered" => Icons.Material.Rounded.VerifiedUser,
+        _ => Icons.Material.Rounded.ReportProblem,
+    };
+
+    private string StateLabel => Cleared ? T("Checked, no case") : Item.Hit.CoveredBy switch
+    {
+        Coverage.SelfCertification => T("Covered by the self-certification"),
+        Coverage.AcceptedExplanation => T("Covered by an accepted explanation"),
+        _ => T("Uncovered"),
+    };
+
+    private string? BasisTone => Item.Hit.Basis switch
+    {
+        RuleBasis.Interpretation => "warning",
+        RuleBasis.Policy => "accent",
+        _ => null,
+    };
+
+    private string BasisIcon => Item.Hit.Basis switch
+    {
+        RuleBasis.Interpretation => Icons.Material.Rounded.Lightbulb,
+        RuleBasis.Policy => Icons.Material.Rounded.Policy,
+        _ => Icons.Material.Rounded.Verified,
+    };
+
+    private string BasisLabel => Item.Hit.Basis switch
+    {
+        RuleBasis.Interpretation => T("Interpretation"),
+        RuleBasis.Policy => T("Bank policy"),
+        _ => T("Verified source"),
+    };
+
+    private string BasisMeaning => Item.Hit.Basis switch
+    {
+        RuleBasis.Interpretation => T("The sources are silent or ambiguous here, so this is our reading; to confirm with the domain expert."),
+        RuleBasis.Policy => T("A choice of the bank, not a legal obligation."),
+        _ => T("The text is in the law or in the ANAF guide."),
+    };
+}

@@ -1,0 +1,144 @@
+@using HackathonStarter.Features.Rules
+@* "Indicii și capcane" (PLAN 15): what the rules engine found, what covers it and the rules it checked without a case,
+   each with its guide page and how solid its ground is. Everything shown comes from the RuleOutcome and the RuleCatalog;
+   the panel never evaluates, decides or rewords a rule. Owner: R1. *@
+
+@if (Error is not null)
+{
+    <ErrorState Message="@Error" OnRetry="OnRetry" />
+}
+else if (_view is null && Loading)
+{
+    <section class="re app-card" aria-busy="true" aria-label="@T("Indicia and traps")">
+        <div class="re-hint">@T("Evaluating the rules...")</div>
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="96px" Class="re-skeleton" />
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" Class="re-skeleton" />
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" Class="re-skeleton" />
+    </section>
+}
+else if (_view is null)
+{
+    <EmptyState Icon="@Icons.Material.Rounded.Rule" Title="@T("No rule evaluation yet")"
+                Description="@T("The rules engine runs when a change to the client's data is recorded.")" />
+}
+else
+{
+    var view = _view;
+    var tone = Tone(view.Decision);
+    <section class="re app-card app-enter" aria-label="@T("Indicia and traps")">
+        <header class="re-header">
+            <div>
+                <h3 class="app-card-title re-title">@T("Indicia and traps")</h3>
+                <div class="app-card-sub">@T("Decided by the rules engine on the closed list of indicia, not by AI.")</div>
+            </div>
+            <span class="re-version mono" title="@T("Rules engine version")">@view.EngineVersion</span>
+        </header>
+
+        <div class="re-summary re-tone-@tone">
+            <span class="re-summary-icon" aria-hidden="true"><MudIcon Icon="@DecisionIcon(view.Decision)" /></span>
+            <div class="re-summary-main">
+                <div class="re-summary-title">@DecisionTitle(view.Decision)</div>
+                <div class="re-summary-tags">
+                    @if (view.Regime is { } regime)
+                    {
+                        <Pill Tone="@tone" Icon="@Icons.Material.Rounded.Gavel">@RuleEvidenceRow.RegimeText(regime)</Pill>
+                    }
+                    @foreach (var jurisdiction in view.AffectedJurisdictions)
+                    {
+                        <Pill Icon="@Icons.Material.Rounded.Place" Title="@Jurisdictions.Display(jurisdiction, IsEn)">@jurisdiction</Pill>
+                    }
+                    @if (view.ReportableFor.Count > 0)
+                    {
+                        <Pill Tone="accent" Icon="@Icons.Material.Rounded.Outbox">@T("Reportable for {0}", string.Join(", ", view.ReportableFor))</Pill>
+                    }
+                </div>
+                <p class="re-summary-text">@view.Explanation</p>
+                <div class="re-counts">
+                    <span>@T("Uncovered: {0}", view.Uncovered.Count)</span>
+                    <span>@T("Covered: {0}", view.Covered.Count)</span>
+                    <span>@T("Checked without a case: {0}", view.Cleared.Count)</span>
+                </div>
+                @if (view.Uncovered.Concat(view.Covered).Any(i => i.Hit.Basis != RuleBasis.Verified))
+                {
+                    <div class="re-caution">
+                        <MudIcon Icon="@Icons.Material.Rounded.Info" />
+                        <span>@T("At least one indicium here rests on our interpretation or a bank policy, not on the text of the law: see its label.")</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="re-group">
+            <h4 class="re-group-title">@T("Indicia from the law") <span class="re-count">@view.IndiciaCount</span></h4>
+            <p class="re-hint">@T("Found by code on the closed list of indicia. Only an uncovered indicium starts an action.")</p>
+            @if (view.IndiciaCount == 0)
+            {
+                <div class="re-none"><MudIcon Icon="@Icons.Material.Rounded.TaskAlt" /> @T("No indicium rule applies.")</div>
+            }
+            else
+            {
+                <div class="re-list">
+                    @foreach (var item in view.Uncovered.Concat(view.Covered))
+                    {
+                        <RuleEvidenceRow Item="item" />
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="re-group">
+            <h4 class="re-group-title">@T("Traps and checked rules") <span class="re-count">@view.Cleared.Count</span></h4>
+            <p class="re-hint">@T("Rules the code checked that open no case, each with the reason.")</p>
+            @if (view.Cleared.Count == 0)
+            {
+                <div class="re-none"><MudIcon Icon="@Icons.Material.Rounded.Remove" /> @T("No rule was checked without a case.")</div>
+            }
+            else
+            {
+                <div class="re-list">
+                    @foreach (var item in view.Cleared)
+                    {
+                        <RuleEvidenceRow Item="item" Cleared="true" />
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    /// <summary>The engine's result: ChangeResult.Outcome, RuleEvaluation.ResultJson read back, or EvaluateCurrent.</summary>
+    [Parameter] public RuleOutcome? Outcome { get; set; }
+    /// <summary>Shows a skeleton while the host is still loading the outcome.</summary>
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+    private RuleEvidence? _view;
+
+    protected override void OnParametersSet() => _view = Outcome is null ? null : RuleEvidence.From(Outcome, IsEn);
+
+    private static string Tone(Decision decision) => decision switch
+    {
+        Decision.NoCase or Decision.Compliant => "success",
+        Decision.Clarification => "warning",
+        _ => "danger",
+    };
+
+    private static string DecisionIcon(Decision decision) => decision switch
+    {
+        Decision.NoCase => Icons.Material.Rounded.TaskAlt,
+        Decision.Compliant => Icons.Material.Rounded.VerifiedUser,
+        Decision.Clarification => Icons.Material.Rounded.HelpOutline,
+        _ => Icons.Material.Rounded.Report,
+    };
+
+    private static string DecisionTitle(Decision decision) => decision switch
+    {
+        Decision.NoCase => T("No case needed"),
+        Decision.Compliant => T("Compliant: every indicium is covered"),
+        Decision.Clarification => T("Clarification needed"),
+        Decision.FatcaAlert => T("FATCA alert"),
+        _ => T("Shield alert"),
+    };
+}

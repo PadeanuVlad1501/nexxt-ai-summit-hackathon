@@ -1,0 +1,11 @@
+.rp-list { display: flex; flex-direction: column; border-radius: var(--app-radius-lg); background: var(--mud-palette-surface);
+  box-shadow: var(--app-shadow-1); overflow: hidden; }
+.rp-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 16px; color: inherit;
+  text-decoration: none; font-size: 14px; line-height: 19px; transition: background-color var(--app-fast) var(--app-ease); }
+.rp-row + .rp-row::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; height: 1px; background: var(--app-separator); }
+.rp-row:hover { background: var(--app-fill); }
+.rp-row:focus-visible { outline: 2px solid var(--app-accent); outline-offset: -2px; }
+.rp-selected, .rp-selected:hover { background: var(--app-fill-strong); font-weight: 600; }
+.rp-case { flex-shrink: 0; min-width: 36px; padding: 2px 6px; border-radius: 6px; background: var(--app-accent-tint); color: var(--app-accent);
+  font-size: 12px; text-align: center; }
+.rp-title { min-width: 0; }

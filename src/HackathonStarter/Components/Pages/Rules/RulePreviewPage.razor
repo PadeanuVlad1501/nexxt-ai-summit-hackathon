@@ -1,0 +1,50 @@
+@page "/rules/preview"
+@using HackathonStarter.Components.Rules
+@using HackathonStarter.Features.Rules
+@inject ICrsRuleEngine Engine
+
+<PageTitle>@T("Rules preview") · @SiteConfig.Name</PageTitle>
+
+<PageHeader Title="@T("Rules preview")"
+            Description="@T("Preview on the synthetic golden-case clients: the real rules engine evaluates each one, the panel only shows its outcome.")" />
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="4">
+        <nav class="rp-list" aria-label="@T("Golden cases")">
+            @foreach (var s in RulePreviewScenarios.All)
+            {
+                var selected = s.Id == _scenario.Id;
+                <a class="rp-row @(selected ? "rp-selected" : "")" href="@($"/rules/preview?case={s.Id}")" aria-current="@(selected ? "page" : null)">
+                    <span class="rp-case mono">@s.GoldenCase</span>
+                    <span class="rp-title">@T(s.Title)</span>
+                </a>
+            }
+        </nav>
+    </MudItem>
+    <MudItem xs="12" md="8">
+        <RuleEvidencePanel Outcome="_outcome" Error="@_error" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    [SupplyParameterFromQuery(Name = "case")] public string? Case { get; set; }
+
+    private RulePreviewScenario _scenario = RulePreviewScenarios.All[0];
+    private RuleOutcome? _outcome;
+    private string? _error;
+
+    protected override void OnParametersSet()
+    {
+        _scenario = RulePreviewScenarios.All.FirstOrDefault(s => s.Id == Case) ?? RulePreviewScenarios.All[0];
+        try
+        {
+            _outcome = _scenario.Evaluate(Engine);
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _outcome = null;
+            _error = ex.Message;
+        }
+    }
+}
